@@ -344,6 +344,10 @@ def run_live_mode(args: argparse.Namespace) -> int:
                 closest_idx = time_diff_series.idxmin()
                 weekly_open_price = float(weekly_data.loc[closest_idx, "close"])
         
+        # Determine output path for visualization
+        # In Docker, output should be in /app/output which is mounted to ./output
+        output_path = args.output or "/app/output/live_forecast.png"
+        
         # Create live updater
         updater = LiveUpdater(
             path_manager=path_manager,
@@ -352,6 +356,8 @@ def run_live_mode(args: argparse.Namespace) -> int:
             update_interval_seconds=args.update_interval,
             weekly_open_price=weekly_open_price,
             daily_open_price=daily_open_price,
+            output_path=output_path,
+            plot_update_frequency=5,  # Update plot every 5 updates (5 minutes)
         )
         
         # Display initial summary
@@ -371,6 +377,7 @@ def run_live_mode(args: argparse.Namespace) -> int:
             print(f"Weekly Open: ${weekly_open_price:.2f}")
         if daily_open_price:
             print(f"Daily Open: ${daily_open_price:.2f}")
+        print(f"Visualization: {output_path} (updates every 5 minutes)")
         print("=" * 80)
         print("\nStarting live update loop...")
         print("The system will continuously eliminate paths that diverge from actual prices.")
