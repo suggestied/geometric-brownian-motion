@@ -140,3 +140,5 @@ output/*.png
 !output/.gitkeep
 plots/
 
+.env
+.ENV.local
