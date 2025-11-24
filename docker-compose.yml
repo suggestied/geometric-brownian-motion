@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  gbm:
+    build: .
+    volumes:
+      - ./output:/app/output
+      - .:/app
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+    command: python -m gbm.cli MSFT --output /app/output/forecast.png --no-plot
+
