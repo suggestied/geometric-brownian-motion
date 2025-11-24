@@ -15,27 +15,30 @@ class TestGBM:
     @pytest.fixture
     def sample_stock_data(self):
         """Create sample stock price data for testing."""
-        dates = pd.date_range('2023-01-01', periods=100, freq='D')
+        dates = pd.date_range("2023-01-01", periods=100, freq="D")
         prices = 100 + np.cumsum(np.random.randn(100) * 0.5)
-        return pd.DataFrame({
-            'Close': prices,
-            'Open': prices * 0.99,
-            'High': prices * 1.01,
-            'Low': prices * 0.98,
-            'Volume': np.random.randint(1000000, 10000000, 100)
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "Close": prices,
+                "Open": prices * 0.99,
+                "High": prices * 1.01,
+                "Low": prices * 0.98,
+                "Volume": np.random.randint(1000000, 10000000, 100),
+            },
+            index=dates,
+        )
 
     @pytest.fixture
     def gbm_instance(self):
         """Create a GBM instance for testing."""
         return GBM(
-            stock_ticker='TEST',
-            history_period='100d',
+            stock_ticker="TEST",
+            history_period="100d",
             forecast_period=252,
-            seed=42
+            seed=42,
         )
 
-    @patch('gbm.model.yf.Ticker')
+    @patch("gbm.model.yf.Ticker")
     def test_fetch_prices_success(self, mock_ticker, gbm_instance, sample_stock_data):
         """Test successful price fetching."""
         mock_ticker_instance = Mock()
@@ -49,7 +52,7 @@ class TestGBM:
         assert int_period == 100
         assert gbm_instance.stock_price is not None
 
-    @patch('gbm.model.yf.Ticker')
+    @patch("gbm.model.yf.Ticker")
     def test_fetch_prices_empty_data(self, mock_ticker, gbm_instance):
         """Test handling of empty stock data."""
         mock_ticker_instance = Mock()
@@ -59,7 +62,7 @@ class TestGBM:
         with pytest.raises(ValueError, match="No data found"):
             gbm_instance.fetch_prices()
 
-    @patch('gbm.model.yf.Ticker')
+    @patch("gbm.model.yf.Ticker")
     def test_fetch_prices_invalid_ticker(self, mock_ticker, gbm_instance):
         """Test handling of invalid ticker."""
         mock_ticker.side_effect = Exception("Ticker not found")
@@ -79,7 +82,7 @@ class TestGBM:
         assert isinstance(mu, (int, float))
         assert isinstance(sigma, (int, float))
         assert sigma >= 0  # Volatility should be non-negative
-        assert 'Daily return' in stock_price.columns
+        assert "Daily return" in stock_price.columns
     
     def test_calculate_mu_sigma_no_data(self, gbm_instance):
         """Test that calculate_mu_sigma raises error when no data."""
@@ -97,8 +100,8 @@ class TestGBM:
 
     def test_brownian_motion_reproducibility(self, gbm_instance):
         """Test that Brownian motion is reproducible with same seed."""
-        gbm1 = GBM('TEST', seed=42, forecast_period=100)
-        gbm2 = GBM('TEST', seed=42, forecast_period=100)
+        gbm1 = GBM("TEST", seed=42, forecast_period=100)
+        gbm2 = GBM("TEST", seed=42, forecast_period=100)
 
         W1 = gbm1.brownian_motion()
         W2 = gbm2.brownian_motion()
@@ -136,14 +139,14 @@ class TestGBM:
         with pytest.raises(ValueError, match="Mu and sigma not calculated"):
             gbm_instance.geometric_brownian_motion()
     
-    @patch('gbm.model.plt.show')
-    @patch('gbm.model.plt.figure')
-    @patch('gbm.model.plt.plot')
-    @patch('gbm.model.plt.legend')
-    @patch('gbm.model.plt.ylabel')
-    @patch('gbm.model.plt.xlabel')
-    @patch('gbm.model.plt.title')
-    @patch('gbm.model.plt.grid')
+    @patch("gbm.model.plt.show")
+    @patch("gbm.model.plt.figure")
+    @patch("gbm.model.plt.plot")
+    @patch("gbm.model.plt.legend")
+    @patch("gbm.model.plt.ylabel")
+    @patch("gbm.model.plt.xlabel")
+    @patch("gbm.model.plt.title")
+    @patch("gbm.model.plt.grid")
     def test_plot(
         self,
         mock_grid,
@@ -170,8 +173,8 @@ class TestGBM:
         mock_legend.assert_called_once()
         mock_show.assert_called_once()
 
-    @patch('gbm.model.plt.savefig')
-    @patch('gbm.model.plt.close')
+    @patch("gbm.model.plt.savefig")
+    @patch("gbm.model.plt.close")
     def test_plot_save_output(self, mock_close, mock_savefig, gbm_instance, sample_stock_data):
         """Test saving plot to file."""
         gbm_instance.stock_price = sample_stock_data.copy()
@@ -179,9 +182,9 @@ class TestGBM:
         gbm_instance.S = [100.0] * 253
         gbm_instance.x_axis = np.linspace(100, 352, 253)
 
-        gbm_instance.plot(output_path='test.png', show_plot=False)
+        gbm_instance.plot(output_path="test.png", show_plot=False)
 
-        mock_savefig.assert_called_once_with('test.png', dpi=300, bbox_inches='tight')
+        mock_savefig.assert_called_once_with("test.png", dpi=300, bbox_inches="tight")
         mock_close.assert_called_once()
     
     def test_plot_missing_data(self, gbm_instance):
@@ -189,8 +192,8 @@ class TestGBM:
         with pytest.raises(ValueError, match="Forecasted prices not available"):
             gbm_instance.plot()
 
-    @patch('gbm.model.yf.Ticker')
-    @patch('gbm.model.plt.show')
+    @patch("gbm.model.yf.Ticker")
+    @patch("gbm.model.plt.show")
     def test_run_complete_pipeline(self, mock_show, mock_ticker, gbm_instance, sample_stock_data):
         """Test the complete run pipeline."""
         mock_ticker_instance = Mock()
@@ -209,16 +212,16 @@ class TestGBM:
     def test_gbm_initialization(self):
         """Test GBM initialization with default and custom parameters."""
         # Test with defaults
-        gbm1 = GBM('MSFT')
-        assert gbm1.stock_ticker == 'MSFT'
-        assert gbm1.history_period == '100d'
+        gbm1 = GBM("MSFT")
+        assert gbm1.stock_ticker == "MSFT"
+        assert gbm1.history_period == "100d"
         assert gbm1.forecast_period == 252
         assert gbm1.seed == 20
 
         # Test with custom parameters
-        gbm2 = GBM('AMZN', history_period='200d', forecast_period=500, seed=42)
-        assert gbm2.stock_ticker == 'AMZN'
-        assert gbm2.history_period == '200d'
+        gbm2 = GBM("AMZN", history_period="200d", forecast_period=500, seed=42)
+        assert gbm2.stock_ticker == "AMZN"
+        assert gbm2.history_period == "200d"
         assert gbm2.forecast_period == 500
         assert gbm2.seed == 42
 

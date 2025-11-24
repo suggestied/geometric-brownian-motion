@@ -59,9 +59,9 @@ class GBM:
     def __init__(
         self,
         stock_ticker: str,
-        history_period: str = '100d',
+        history_period: str = "100d",
         forecast_period: int = 252,
-        seed: int = 20
+        seed: int = 20,
     ):
         self.stock_ticker = stock_ticker
         self.history_period = history_period
@@ -103,11 +103,11 @@ class GBM:
                 )
 
             # Extract integer days from history_period string (e.g., '100d' -> 100)
-            if 'd' in self.history_period:
-                self.int_of_history_period = int(self.history_period.split('d')[0])
-            elif 'y' in self.history_period:
+            if "d" in self.history_period:
+                self.int_of_history_period = int(self.history_period.split("d")[0])
+            elif "y" in self.history_period:
                 # Approximate: 1 year ≈ 252 trading days
-                years = float(self.history_period.split('y')[0])
+                years = float(self.history_period.split("y")[0])
                 self.int_of_history_period = int(years * 252)
             else:
                 # Default to actual number of trading days in the data
@@ -139,13 +139,13 @@ class GBM:
             )
 
         # Calculate daily returns
-        self.stock_price['Daily return'] = self.stock_price['Close'].pct_change(1)
+        self.stock_price["Daily return"] = self.stock_price["Close"].pct_change(1)
 
         # Calculate annualized mean return (252 trading days per year)
-        self.mu = self.stock_price['Daily return'].mean() * 252
+        self.mu = self.stock_price["Daily return"].mean() * 252
 
         # Calculate annualized volatility
-        self.sigma = self.stock_price['Daily return'].std() * np.sqrt(252)
+        self.sigma = self.stock_price["Daily return"].std() * np.sqrt(252)
         
         return self.stock_price, self.mu, self.sigma
     
@@ -199,10 +199,10 @@ class GBM:
             )
 
         # Initial stock price (last trading day price)
-        self.So = float(self.stock_price['Close'].iloc[-1])
+        self.So = float(self.stock_price["Close"].iloc[-1])
 
         # Get actual data length for proper x-axis alignment
-        actual_data_length = len(self.stock_price['Close'])
+        actual_data_length = len(self.stock_price["Close"])
 
         # Time axis for GBM calculation
         time_axis = np.linspace(0, 1, self.forecast_period + 1)
@@ -254,23 +254,23 @@ class GBM:
             )
 
         # X-axis for historical prices (use actual data length, not calculated period)
-        actual_data_length = len(self.stock_price['Close'])
+        actual_data_length = len(self.stock_price["Close"])
         pt = np.linspace(0, actual_data_length, actual_data_length)
 
         plt.figure(figsize=(12, 8), dpi=300)
-        plt.plot(pt, self.stock_price['Close'], label='Actual')
-        plt.plot(self.x_axis, self.S, label='Forecast')
+        plt.plot(pt, self.stock_price["Close"], label="Actual")
+        plt.plot(self.x_axis, self.S, label="Forecast")
         plt.legend()
-        plt.ylabel('Stock Price, $')
-        plt.xlabel('Trading Days')
+        plt.ylabel("Stock Price, $")
+        plt.xlabel("Trading Days")
         plt.title(
-            f'Geometric Brownian Motion of {self.stock_ticker} '
-            f'over next {self.forecast_period} trading days'
+            f"Geometric Brownian Motion of {self.stock_ticker} "
+            f"over next {self.forecast_period} trading days"
         )
         plt.grid(True, alpha=0.3)
 
         if output_path:
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
 
         if show_plot:
             plt.show()
