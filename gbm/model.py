@@ -13,13 +13,12 @@ import pandas as pd
 
 
 class GBM:
-    """
-    Geometric Brownian Motion model for stock price forecasting.
-    
+    """Geometric Brownian Motion model for stock price forecasting.
+
     The GBM model uses historical stock data to calculate drift (mu) and
     volatility (sigma) parameters, then simulates future price paths using
     stochastic calculus.
-    
+
     Parameters
     ----------
     stock_ticker : str
@@ -30,7 +29,7 @@ class GBM:
         Number of trading days to forecast
     seed : int, default=20
         Random seed for NumPy pseudo-random number generator
-    
+
     Attributes
     ----------
     stock_ticker : str
@@ -56,7 +55,7 @@ class GBM:
     W : np.ndarray
         Brownian path
     """
-    
+
     def __init__(
         self,
         stock_ticker: str,
@@ -80,15 +79,14 @@ class GBM:
         self.int_of_history_period: Optional[int] = None
         
     def fetch_prices(self) -> Tuple[pd.DataFrame, int]:
-        """
-        Fetch historical stock prices from Yahoo Finance.
-        
+        """Fetch historical stock prices from Yahoo Finance.
+
         Returns
         -------
         Tuple[pd.DataFrame, int]
             Historical stock price DataFrame and integer representation
             of history period in days
-        
+
         Raises
         ------
         ValueError
@@ -123,14 +121,13 @@ class GBM:
             ) from e
     
     def calculate_mu_sigma(self) -> Tuple[pd.DataFrame, float, float]:
-        """
-        Calculate annualized mean return (mu) and volatility (sigma).
-        
+        """Calculate annualized mean return (mu) and volatility (sigma).
+
         Returns
         -------
         Tuple[pd.DataFrame, float, float]
             Stock price DataFrame with daily returns, mu, and sigma
-        
+
         Raises
         ------
         ValueError
@@ -153,9 +150,8 @@ class GBM:
         return self.stock_price, self.mu, self.sigma
     
     def brownian_motion(self) -> np.ndarray:
-        """
-        Generate Brownian motion path.
-        
+        """Generate Brownian motion path.
+
         Returns
         -------
         np.ndarray
@@ -175,16 +171,15 @@ class GBM:
         return self.W
     
     def geometric_brownian_motion(self) -> Tuple[list, np.ndarray]:
-        """
-        Calculate forecasted stock prices using Geometric Brownian Motion.
-        
+        """Calculate forecasted stock prices using Geometric Brownian Motion.
+
         The GBM formula: S(t) = S(0) * exp((mu - 0.5*sigma²)*t + sigma*W(t))
-        
+
         Returns
         -------
         Tuple[list, np.ndarray]
             Forecasted stock prices (S) and x-axis values for plotting
-        
+
         Raises
         ------
         ValueError
@@ -234,16 +229,15 @@ class GBM:
         output_path: Optional[str] = None,
         show_plot: bool = True
     ) -> None:
-        """
-        Plot historical and forecasted stock prices.
-        
+        """Plot historical and forecasted stock prices.
+
         Parameters
         ----------
         output_path : str, optional
             Path to save the plot. If None, plot is not saved.
         show_plot : bool, default=True
             Whether to display the plot
-        
+
         Raises
         ------
         ValueError
@@ -284,16 +278,15 @@ class GBM:
             plt.close()
     
     def run(self, show_plot: bool = True, output_path: Optional[str] = None) -> None:
-        """
-        Run the complete GBM simulation pipeline.
-        
+        """Run the complete GBM simulation pipeline.
+
         This method executes all steps in order:
         1. Fetch historical prices
         2. Calculate mu and sigma
         3. Generate Brownian motion
         4. Calculate forecasted prices
         5. Plot results
-        
+
         Parameters
         ----------
         show_plot : bool, default=True

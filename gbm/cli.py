@@ -9,9 +9,8 @@ from gbm.model import GBM
 
 
 def parse_args() -> argparse.Namespace:
-    """
-    Parse command-line arguments.
-    
+    """Parse command-line arguments.
+
     Returns
     -------
     argparse.Namespace
@@ -73,14 +72,13 @@ Examples:
 
 
 def validate_args(args: argparse.Namespace) -> None:
-    """
-    Validate command-line arguments.
-    
+    """Validate command-line arguments.
+
     Parameters
     ----------
     args : argparse.Namespace
         Parsed command-line arguments
-    
+
     Raises
     ------
     ValueError
@@ -98,9 +96,8 @@ def validate_args(args: argparse.Namespace) -> None:
 
 
 def main() -> int:
-    """
-    Main entry point for the CLI.
-    
+    """Main entry point for the CLI.
+
     Returns
     -------
     int

@@ -1,5 +1,4 @@
-"""
-Geometric Brownian Motion (GBM) Stock Price Simulator
+"""Geometric Brownian Motion (GBM) Stock Price Simulator.
 
 A Python package for simulating stock price movements using the Geometric
 Brownian Motion stochastic calculus model.
