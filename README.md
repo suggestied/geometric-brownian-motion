@@ -2,6 +2,8 @@
 
 A live probability assistant for manual futures traders that visualizes and narrows down probable future price paths for NASDAQ futures (NQ) using Geometric Brownian Motion (GBM) and live market data. The system continuously eliminates paths that diverge from reality, "radiating" down to a focused set of likely paths and reversal zones.
 
+![Sample Output](sample_output.png)
+
 ## Overview
 
 This tool helps traders visualize probable future price paths by:
