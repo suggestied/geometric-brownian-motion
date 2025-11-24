@@ -299,4 +299,58 @@ class GBM:
         self.brownian_motion()
         self.geometric_brownian_motion()
         self.plot(output_path=output_path, show_plot=show_plot)
+    
+    def set_custom_starting_price(self, starting_price: float) -> None:
+        """Set a custom starting price for simulation.
+        
+        This allows starting from a specific price (e.g., weekly open)
+        instead of the last historical price.
+        
+        Parameters
+        ----------
+        starting_price : float
+            Custom starting price
+        """
+        self.So = float(starting_price)
+    
+    def calculate_mu_sigma_from_multi_timeframe(
+        self,
+        htf_params: dict,
+        preferred_timeframe: str = "1d",
+    ) -> Tuple[float, float]:
+        """Calculate mu and sigma from multi-timeframe parameters.
+        
+        Uses higher timeframe (HTF) parameters for broader trend analysis.
+        
+        Parameters
+        ----------
+        htf_params : dict
+            Dictionary mapping timeframe to dict with 'mu' and 'sigma' keys
+        preferred_timeframe : str, default="1d"
+            Preferred timeframe to use (fallback to others if not available)
+        
+        Returns
+        -------
+        Tuple[float, float]
+            (mu, sigma) values
+        """
+        # Try preferred timeframe first
+        if preferred_timeframe in htf_params:
+            params = htf_params[preferred_timeframe]
+            self.mu = params.get("mu", 0.0)
+            self.sigma = params.get("sigma", 0.1)
+            return self.mu, self.sigma
+        
+        # Fallback to first available HTF
+        for tf in ["1d", "4h", "1h"]:
+            if tf in htf_params:
+                params = htf_params[tf]
+                self.mu = params.get("mu", 0.0)
+                self.sigma = params.get("sigma", 0.1)
+                return self.mu, self.sigma
+        
+        # Default values if no HTF data available
+        self.mu = 0.0
+        self.sigma = 0.1
+        return self.mu, self.sigma
 
