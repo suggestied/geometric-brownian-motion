@@ -200,12 +200,23 @@ def run_live_mode(args: argparse.Namespace) -> int:
         if args.starting_price == "weekly-open":
             start_datetime = calendar.get_weekly_open()
             print(f"Weekly open datetime: {start_datetime}")
+            # Normalize timezone for comparison
+            start_datetime_naive = start_datetime.replace(tzinfo=None) if start_datetime.tzinfo else start_datetime
+            
             # Try to get price at weekly open from daily data
             daily_data = multi_tf.data.get("1d", pd.DataFrame())
             if not daily_data.empty:
                 # Find the closest daily bar to weekly open
-                time_diff = (daily_data.index - start_datetime).abs()
-                closest_idx = time_diff.idxmin()
+                # Convert index to naive if needed and calculate absolute time differences
+                index_naive = pd.DatetimeIndex([
+                    x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x 
+                    for x in daily_data.index
+                ])
+                time_diff_series = pd.Series(
+                    [(x - start_datetime_naive).total_seconds() for x in index_naive],
+                    index=daily_data.index
+                ).abs()
+                closest_idx = time_diff_series.idxmin()
                 start_price = float(daily_data.loc[closest_idx, "close"])
                 print(f"Found weekly open price from daily data: ${start_price:.2f}")
             else:
@@ -217,12 +228,23 @@ def run_live_mode(args: argparse.Namespace) -> int:
         elif args.starting_price == "daily-open":
             start_datetime = calendar.get_daily_open()
             print(f"Daily open datetime: {start_datetime}")
+            # Normalize timezone for comparison
+            start_datetime_naive = start_datetime.replace(tzinfo=None) if start_datetime.tzinfo else start_datetime
+            
             # Try to get price at daily open from 1m data
             min_data = multi_tf.data.get("1m", pd.DataFrame())
             if not min_data.empty:
                 # Find the closest 1m bar to daily open
-                time_diff = (min_data.index - start_datetime).abs()
-                closest_idx = time_diff.idxmin()
+                # Convert index to naive if needed and calculate absolute time differences
+                index_naive = pd.DatetimeIndex([
+                    x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x 
+                    for x in min_data.index
+                ])
+                time_diff_series = pd.Series(
+                    [(x - start_datetime_naive).total_seconds() for x in index_naive],
+                    index=min_data.index
+                ).abs()
+                closest_idx = time_diff_series.idxmin()
                 start_price = float(min_data.loc[closest_idx, "close"])
                 print(f"Found daily open price from 1m data: ${start_price:.2f}")
             else:
@@ -272,7 +294,9 @@ def run_live_mode(args: argparse.Namespace) -> int:
             num_paths=args.num_paths,
         )
         
-        paths, time_index = path_generator.generate_paths(start_datetime)
+        # Normalize start_datetime to naive for path generation
+        start_datetime_naive = start_datetime.replace(tzinfo=None) if start_datetime.tzinfo else start_datetime
+        paths, time_index = path_generator.generate_paths(start_datetime_naive)
         print(f"Generated {len(paths)} paths over {len(time_index)} time steps")
         
         # Create path manager
@@ -281,18 +305,77 @@ def run_live_mode(args: argparse.Namespace) -> int:
         # Create path filter
         path_filter = PathFilter(path_manager, tolerance=args.tolerance)
         
+        # Get weekly and daily open prices for display
+        weekly_open_price = None
+        daily_open_price = None
+        
+        if args.starting_price == "weekly-open":
+            weekly_open_price = start_price
+            # Also get daily open
+            daily_open_datetime = calendar.get_daily_open()
+            daily_open_datetime_naive = daily_open_datetime.replace(tzinfo=None) if daily_open_datetime.tzinfo else daily_open_datetime
+            daily_data = multi_tf.data.get("1m", pd.DataFrame())
+            if not daily_data.empty:
+                index_naive = pd.DatetimeIndex([
+                    x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x 
+                    for x in daily_data.index
+                ])
+                time_diff_series = pd.Series(
+                    [(x - daily_open_datetime_naive).total_seconds() for x in index_naive],
+                    index=daily_data.index
+                ).abs()
+                closest_idx = time_diff_series.idxmin()
+                daily_open_price = float(daily_data.loc[closest_idx, "close"])
+        elif args.starting_price == "daily-open":
+            daily_open_price = start_price
+            # Also get weekly open
+            weekly_open_datetime = calendar.get_weekly_open()
+            weekly_open_datetime_naive = weekly_open_datetime.replace(tzinfo=None) if weekly_open_datetime.tzinfo else weekly_open_datetime
+            weekly_data = multi_tf.data.get("1d", pd.DataFrame())
+            if not weekly_data.empty:
+                index_naive = pd.DatetimeIndex([
+                    x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x 
+                    for x in weekly_data.index
+                ])
+                time_diff_series = pd.Series(
+                    [(x - weekly_open_datetime_naive).total_seconds() for x in index_naive],
+                    index=weekly_data.index
+                ).abs()
+                closest_idx = time_diff_series.idxmin()
+                weekly_open_price = float(weekly_data.loc[closest_idx, "close"])
+        
         # Create live updater
         updater = LiveUpdater(
             path_manager=path_manager,
             multi_tf_manager=multi_tf,
             path_filter=path_filter,
             update_interval_seconds=args.update_interval,
+            weekly_open_price=weekly_open_price,
+            daily_open_price=daily_open_price,
         )
         
-        print("\n" + "=" * 60)
-        print("Starting live update loop...")
+        # Display initial summary
+        print("\n" + "=" * 80)
+        print("SIMULATION SUMMARY")
+        print("=" * 80)
+        print(f"Ticker: {args.ticker}")
+        print(f"Starting Price: ${start_price:.2f} (from {args.starting_price})")
+        print(f"Starting Time: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Forecast Horizon: {args.forecast_horizon_minutes} minutes ({args.forecast_horizon_minutes/60:.1f} hours)")
+        print(f"Number of Paths: {args.num_paths}")
+        print(f"Elimination Tolerance: {args.tolerance*100:.1f}%")
+        print(f"Update Interval: {args.update_interval} seconds")
+        print(f"Drift (μ): {mu:.4f}")
+        print(f"Volatility (σ): {sigma:.4f}")
+        if weekly_open_price:
+            print(f"Weekly Open: ${weekly_open_price:.2f}")
+        if daily_open_price:
+            print(f"Daily Open: ${daily_open_price:.2f}")
+        print("=" * 80)
+        print("\nStarting live update loop...")
+        print("The system will continuously eliminate paths that diverge from actual prices.")
         print("Press Ctrl+C to stop")
-        print("=" * 60 + "\n")
+        print("\n" + "=" * 80 + "\n")
         
         # Start live updates
         updater.start()

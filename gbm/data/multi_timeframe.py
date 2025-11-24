@@ -71,11 +71,21 @@ class MultiTimeframeManager:
                 lookback_days = self._get_lookback_days(timeframe, history_days)
                 timeframe_start = end - timedelta(days=lookback_days)
                 
+                # For free tier, ensure we're not requesting data too recent
+                # Use data that's at least 15 minutes old
+                # Normalize timezone for comparison
+                end_naive = end.replace(tzinfo=None) if end.tzinfo else end
+                timeframe_start_naive = timeframe_start.replace(tzinfo=None) if timeframe_start.tzinfo else timeframe_start
+                
+                safe_end = end_naive - timedelta(minutes=15)
+                if safe_end < timeframe_start_naive:
+                    safe_end = timeframe_start_naive + timedelta(days=1)
+                
                 df = self.client.fetch_bars(
                     self.symbol,
                     timeframe,
                     timeframe_start,
-                    end,
+                    safe_end,
                 )
                 
                 self.data[timeframe] = df

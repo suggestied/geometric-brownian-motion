@@ -36,15 +36,32 @@ class AlpacaClient:
         Whether to use paper trading API (default) or live API.
     """
     
-    # Timeframe mapping: our internal names to Alpaca TimeFrame
-    TIMEFRAME_MAP = {
-        "1m": TimeFrame.Minute,
-        "5m": TimeFrame(5, TimeFrame.Unit.Minute),
-        "15m": TimeFrame(15, TimeFrame.Unit.Minute),
-        "1h": TimeFrame.Hour,
-        "4h": TimeFrame(4, TimeFrame.Unit.Hour),
-        "1d": TimeFrame.Day,
-    }
+    @staticmethod
+    def _get_timeframe(timeframe_str: str) -> TimeFrame:
+        """Get Alpaca TimeFrame object for a given timeframe string.
+        
+        Parameters
+        ----------
+        timeframe_str : str
+            Timeframe string (1m, 5m, 15m, 1h, 4h, 1d)
+        
+        Returns
+        -------
+        TimeFrame
+            Alpaca TimeFrame object
+        """
+        # Map to standard Alpaca TimeFrame values
+        # Note: Alpaca may not support all custom intervals directly
+        # We use the closest standard timeframe and will aggregate if needed
+        timeframe_map = {
+            "1m": TimeFrame.Minute,
+            "5m": TimeFrame.Minute,   # Will fetch 1m and aggregate to 5m
+            "15m": TimeFrame.Minute,  # Will fetch 1m and aggregate to 15m
+            "1h": TimeFrame.Hour,
+            "4h": TimeFrame.Hour,     # Will fetch 1h and aggregate to 4h
+            "1d": TimeFrame.Day,
+        }
+        return timeframe_map.get(timeframe_str, TimeFrame.Minute)
     
     def __init__(
         self,
@@ -178,29 +195,86 @@ class AlpacaClient:
         """
         symbol = self.normalize_ticker(symbol)
         
-        if timeframe not in self.TIMEFRAME_MAP:
+        valid_timeframes = ["1m", "5m", "15m", "1h", "4h", "1d"]
+        if timeframe not in valid_timeframes:
             raise ValueError(
                 f"Invalid timeframe: {timeframe}. "
-                f"Must be one of: {list(self.TIMEFRAME_MAP.keys())}"
+                f"Must be one of: {valid_timeframes}"
             )
         
-        alpaca_timeframe = self.TIMEFRAME_MAP[timeframe]
+        alpaca_timeframe = self._get_timeframe(timeframe)
         
         if end is None:
             end = datetime.now()
         
+        # Adjust end time to be at least 15 minutes ago to avoid SIP restriction
+        # Free tier can only access SIP data that's 15+ minutes old
+        now = datetime.now()
+        
+        # Normalize timezone for comparison - make both naive
+        start_naive = start.replace(tzinfo=None) if start.tzinfo else start
+        
+        if end:
+            end_naive = end.replace(tzinfo=None) if end.tzinfo else end
+            # Calculate time difference
+            time_diff = (now - end_naive)
+            # Check if it's a timedelta and get seconds
+            if hasattr(time_diff, 'total_seconds'):
+                seconds_diff = time_diff.total_seconds()
+            else:
+                # Fallback: calculate manually
+                seconds_diff = (now - end_naive).days * 86400 + (now - end_naive).seconds
+            
+            if seconds_diff < 900:  # Less than 15 minutes
+                # Data is too recent, adjust to 15 minutes ago
+                end = now - timedelta(minutes=15)
+                if end < start_naive:
+                    # If adjusted end is before start, use start + 1 day
+                    end = start_naive + timedelta(days=1)
+            else:
+                end = end_naive
+        else:
+            end = now - timedelta(minutes=15)
+        
+        # Ensure start is also timezone-naive for consistency
+        start = start_naive
+        
         try:
-            request = StockBarsRequest(
-                symbol_or_symbols=symbol,
-                timeframe=alpaca_timeframe,
-                start=start,
-                end=end,
-                limit=limit,
-            )
+            # Try with IEX feed first (free tier supports IEX for recent data)
+            request_params = {
+                "symbol_or_symbols": symbol,
+                "timeframe": alpaca_timeframe,
+                "start": start,
+                "end": end,
+            }
+            if limit:
+                request_params["limit"] = limit
+            
+            # Try to add feed parameter (IEX is free tier compatible)
+            try:
+                request = StockBarsRequest(**request_params, feed="iex")
+            except TypeError:
+                # If feed parameter not supported, use without it
+                request = StockBarsRequest(**request_params)
             
             bars = self.client.get_stock_bars(request)
             
-            if not bars.data:
+            if not bars.data or symbol not in bars.data or not bars.data[symbol]:
+                # Try with older data if recent data fails
+                end_for_comparison = end.replace(tzinfo=None) if end.tzinfo else end
+                time_diff = (now - end_for_comparison)
+                if hasattr(time_diff, 'total_seconds') and time_diff.total_seconds() < 3600:
+                    # Try going back further
+                    older_end = now - timedelta(hours=1)
+                    if older_end > start:
+                        request_params["end"] = older_end
+                        try:
+                            request = StockBarsRequest(**request_params, feed="iex")
+                        except TypeError:
+                            request = StockBarsRequest(**request_params)
+                        bars = self.client.get_stock_bars(request)
+            
+            if not bars.data or symbol not in bars.data or not bars.data[symbol]:
                 raise ValueError(f"No data returned for {symbol} from {start} to {end}")
             
             # Convert to DataFrame
@@ -222,7 +296,14 @@ class AlpacaClient:
             return df
             
         except APIError as e:
-            raise ValueError(f"Alpaca API error for {symbol}: {str(e)}") from e
+            error_msg = str(e)
+            # If it's a SIP subscription error, provide helpful message
+            if "subscription" in error_msg.lower() or "sip" in error_msg.lower():
+                raise ValueError(
+                    f"Alpaca free tier limitation: {error_msg}. "
+                    f"Try using data that's at least 15 minutes old, or upgrade to a paid plan."
+                ) from e
+            raise ValueError(f"Alpaca API error for {symbol}: {error_msg}") from e
         except KeyError as e:
             raise ValueError(
                 f"Symbol {symbol} not found or not supported. "

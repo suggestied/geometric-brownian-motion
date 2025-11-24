@@ -58,8 +58,15 @@ class ReversalZoneDetector:
             # Use the last timestamp in the time index
             if len(self.path_manager.time_index) > 0:
                 timestamp = self.path_manager.time_index[-1]
+                # Normalize to naive datetime
+                if hasattr(timestamp, 'tzinfo') and timestamp.tzinfo is not None:
+                    timestamp = timestamp.replace(tzinfo=None)
             else:
                 return []
+        else:
+            # Normalize timestamp to naive if it's timezone-aware
+            if hasattr(timestamp, 'tzinfo') and timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
         
         # Get all active path prices at this timestamp
         prices = self.path_manager.get_all_paths_at_time(timestamp)
@@ -133,14 +140,22 @@ class ReversalZoneDetector:
         if not self.path_manager.active_paths:
             return []
         
-        # Get current timestamp
+        # Get current timestamp and normalize timezone
         current_time = self.path_manager.time_index[-1]
+        if hasattr(current_time, 'tzinfo') and current_time.tzinfo is not None:
+            current_time = current_time.replace(tzinfo=None)
+        
         lookback_time = current_time - pd.Timedelta(minutes=lookback_minutes)
+        
+        # Normalize time_index for comparison
+        time_index_naive = self.path_manager.time_index
+        if hasattr(time_index_naive, 'tz') and time_index_naive.tz is not None:
+            time_index_naive = time_index_naive.tz_localize(None)
         
         # Find indices
         try:
-            current_idx = self.path_manager.time_index.get_loc(current_time)
-            lookback_idx = self.path_manager.time_index.get_loc(lookback_time, method="nearest")
+            current_idx = time_index_naive.get_loc(current_time)
+            lookback_idx = time_index_naive.get_loc(lookback_time, method="nearest")
         except Exception:
             return []
         
@@ -300,8 +315,11 @@ class ReversalZoneDetector:
         if not self.path_manager.active_paths:
             return []
         
-        # Get future timestamp
+        # Get future timestamp and normalize timezone
         current_time = self.path_manager.time_index[-1]
+        if hasattr(current_time, 'tzinfo') and current_time.tzinfo is not None:
+            current_time = current_time.replace(tzinfo=None)
+        
         future_time = current_time + pd.Timedelta(minutes=future_minutes)
         
         # Get path bounds at future time

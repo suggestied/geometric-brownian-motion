@@ -17,10 +17,17 @@ echo "Ticker: $TICKER"
 echo "Mode: $MODE"
 echo ""
 
-# Build image if it doesn't exist or if --rebuild flag is set
-if [[ "$3" == "--rebuild" ]] || ! docker image inspect gbm-simulator >/dev/null 2>&1; then
-    echo "Building Docker image..."
+# Build image - rebuild if --rebuild flag is set, otherwise check if exists
+if [[ "$3" == "--rebuild" ]] || [[ "$4" == "--rebuild" ]]; then
+    echo "Rebuilding Docker image..."
+    docker build -t gbm-simulator . --no-cache
+    echo ""
+elif ! docker image inspect gbm-simulator >/dev/null 2>&1; then
+    echo "Building Docker image (first time)..."
     docker build -t gbm-simulator .
+    echo ""
+else
+    echo "Using existing Docker image (use --rebuild as 3rd arg to force rebuild)"
     echo ""
 fi
 

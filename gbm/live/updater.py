@@ -37,12 +37,16 @@ class LiveUpdater:
         path_filter: PathFilter,
         update_interval_seconds: int = 60,  # 1 minute default
         callback: Optional[Callable] = None,
+        weekly_open_price: Optional[float] = None,
+        daily_open_price: Optional[float] = None,
     ):
         self.path_manager = path_manager
         self.multi_tf_manager = multi_tf_manager
         self.path_filter = path_filter
         self.update_interval_seconds = update_interval_seconds
         self.callback = callback
+        self.weekly_open_price = weekly_open_price
+        self.daily_open_price = daily_open_price
         
         self.calendar = MarketCalendar()
         self.reversal_detector = ReversalZoneDetector(path_manager)
@@ -50,6 +54,7 @@ class LiveUpdater:
         self.running = False
         self.last_update_time: Optional[datetime] = None
         self.update_count = 0
+        self.start_time = datetime.now()
     
     def start(self) -> None:
         """Start the live update loop.
@@ -124,14 +129,45 @@ class LiveUpdater:
         
         self.last_update_time = current_time
         
-        # Print update info
-        print(
-            f"Update {self.update_count} | "
-            f"Price: ${latest_price:.2f} | "
-            f"Active: {stats['num_active']}/{stats['num_total']} "
-            f"({survival_rate*100:.1f}%) | "
-            f"Eliminated: {eliminated}"
-        )
+        # Print update info with formatting
+        print("-" * 80)
+        print(f"Update #{self.update_count} | {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print("-" * 80)
+        print(f"Current Price: ${latest_price:.2f}")
+        
+        # Show weekly/daily opens if available
+        if self.weekly_open_price is not None:
+            diff_weekly = ((latest_price - self.weekly_open_price) / self.weekly_open_price) * 100
+            print(f"Weekly Open: ${self.weekly_open_price:.2f} ({diff_weekly:+.2f}%)")
+        if self.daily_open_price is not None:
+            diff_daily = ((latest_price - self.daily_open_price) / self.daily_open_price) * 100
+            print(f"Daily Open: ${self.daily_open_price:.2f} ({diff_daily:+.2f}%)")
+        
+        print(f"\nPath Status:")
+        print(f"  Active: {stats['num_active']}/{stats['num_total']} ({survival_rate*100:.1f}%)")
+        print(f"  Eliminated this update: {eliminated}")
+        
+        # Display reversal zones
+        if zones:
+            print(f"\nReversal Zones (Top {min(5, len(zones))}):")
+            for i, zone in enumerate(zones[:5], 1):
+                zone_type_icon = "🟢" if zone['zone_type'] == 'support' else "🔴" if zone['zone_type'] == 'resistance' else "🟡"
+                print(
+                    f"  {i}. {zone_type_icon} {zone['zone_type'].title():12s} "
+                    f"@ ${zone['price_level']:.2f} "
+                    f"(Probability: {zone['probability']*100:.1f}%, "
+                    f"Paths: {zone['path_count']})"
+                )
+        else:
+            print("\nReversal Zones: None detected yet")
+        
+        # Show "radiation" progress
+        elapsed_minutes = (current_time - self.start_time).total_seconds() / 60
+        if elapsed_minutes > 0:
+            elimination_rate = (stats['num_total'] - stats['num_active']) / elapsed_minutes
+            print(f"\nRadiation Progress: {elimination_rate:.1f} paths eliminated/minute")
+        
+        print("=" * 80)
         
         # Call callback if provided
         if self.callback:

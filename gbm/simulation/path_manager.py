@@ -79,9 +79,29 @@ class PathManager:
         if path_index < 0 or path_index >= self.num_paths:
             return None
         
+        # Check if timestamp is within the time_index range
+        if len(self.time_index) == 0:
+            return None
+        
+        # Normalize timezone for comparison
+        timestamp_naive = timestamp.replace(tzinfo=None) if timestamp.tzinfo else timestamp
+        # Convert time_index to naive if it's timezone-aware
+        if hasattr(self.time_index, 'tz') and self.time_index.tz is not None:
+            time_index_naive = self.time_index.tz_localize(None)
+        else:
+            time_index_naive = self.time_index
+        
+        # If timestamp is before the start, return starting price
+        if timestamp_naive < time_index_naive[0]:
+            return float(self.paths[path_index][0])
+        
+        # If timestamp is after the end, return the last price
+        if timestamp_naive > time_index_naive[-1]:
+            return float(self.paths[path_index][-1])
+        
         # Find the closest time index
         try:
-            idx = self.time_index.get_indexer([timestamp], method="nearest")[0]
+            idx = time_index_naive.get_indexer([timestamp_naive], method="nearest")[0]
             if idx < 0 or idx >= len(self.paths[path_index]):
                 return None
             return float(self.paths[path_index][idx])
