@@ -206,13 +206,16 @@ class GBM:
         # Initial stock price (last trading day price)
         self.So = float(self.stock_price['Close'].iloc[-1])
         
+        # Get actual data length for proper x-axis alignment
+        actual_data_length = len(self.stock_price['Close'])
+        
         # Time axis for GBM calculation
         time_axis = np.linspace(0, 1, self.forecast_period + 1)
         
-        # X-axis for plotting forecast
+        # X-axis for plotting forecast (starts from end of historical data)
         self.x_axis = np.linspace(
-            self.int_of_history_period,
-            self.forecast_period + self.int_of_history_period,
+            actual_data_length,
+            self.forecast_period + actual_data_length,
             self.forecast_period + 1
         )
         
@@ -256,8 +259,9 @@ class GBM:
                 "Stock price data not available. Call fetch_prices() first."
             )
         
-        # X-axis for historical prices
-        pt = np.linspace(0, self.int_of_history_period, self.int_of_history_period)
+        # X-axis for historical prices (use actual data length, not calculated period)
+        actual_data_length = len(self.stock_price['Close'])
+        pt = np.linspace(0, actual_data_length, actual_data_length)
         
         plt.figure(figsize=(12, 8), dpi=300)
         plt.plot(pt, self.stock_price['Close'], label='Actual')
