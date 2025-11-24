@@ -67,7 +67,7 @@ class GBM:
         self.history_period = history_period
         self.forecast_period = forecast_period
         self.seed = seed
-        
+
         # Initialize attributes
         self.stock_price: Optional[pd.DataFrame] = None
         self.mu: Optional[float] = None
@@ -77,7 +77,7 @@ class GBM:
         self.x_axis: Optional[np.ndarray] = None
         self.W: Optional[np.ndarray] = None
         self.int_of_history_period: Optional[int] = None
-        
+
     def fetch_prices(self) -> Tuple[pd.DataFrame, int]:
         """Fetch historical stock prices from Yahoo Finance.
 
@@ -95,13 +95,13 @@ class GBM:
         try:
             ticker = yf.Ticker(self.stock_ticker)
             self.stock_price = ticker.history(self.history_period)
-            
+
             if self.stock_price.empty:
                 raise ValueError(
                     f"No data found for ticker '{self.stock_ticker}'. "
                     "Please check the ticker symbol."
                 )
-            
+
             # Extract integer days from history_period string (e.g., '100d' -> 100)
             if 'd' in self.history_period:
                 self.int_of_history_period = int(self.history_period.split('d')[0])
@@ -112,9 +112,9 @@ class GBM:
             else:
                 # Default to actual number of trading days in the data
                 self.int_of_history_period = len(self.stock_price)
-            
+
             return self.stock_price, self.int_of_history_period
-            
+
         except Exception as e:
             raise ValueError(
                 f"Error fetching data for '{self.stock_ticker}': {str(e)}"
@@ -137,13 +137,13 @@ class GBM:
             raise ValueError(
                 "Stock price data not available. Call fetch_prices() first."
             )
-        
+
         # Calculate daily returns
         self.stock_price['Daily return'] = self.stock_price['Close'].pct_change(1)
-        
+
         # Calculate annualized mean return (252 trading days per year)
         self.mu = self.stock_price['Daily return'].mean() * 252
-        
+
         # Calculate annualized volatility
         self.sigma = self.stock_price['Daily return'].std() * np.sqrt(252)
         
@@ -158,13 +158,13 @@ class GBM:
             Cumulative Brownian path (W)
         """
         np.random.seed(self.seed)
-        
+
         # Time step
         dt = 1 / self.forecast_period
-        
+
         # Brownian increments
         b = np.random.normal(0, 1, int(self.forecast_period)) * np.sqrt(dt)
-        
+
         # Brownian path (cumulative sum)
         self.W = np.cumsum(b)
         
@@ -197,16 +197,16 @@ class GBM:
             raise ValueError(
                 "Brownian motion not calculated. Call brownian_motion() first."
             )
-        
+
         # Initial stock price (last trading day price)
         self.So = float(self.stock_price['Close'].iloc[-1])
-        
+
         # Get actual data length for proper x-axis alignment
         actual_data_length = len(self.stock_price['Close'])
-        
+
         # Time axis for GBM calculation
         time_axis = np.linspace(0, 1, self.forecast_period + 1)
-        
+
         # X-axis for plotting forecast (starts from end of historical data)
         self.x_axis = np.linspace(
             actual_data_length,
@@ -252,11 +252,11 @@ class GBM:
             raise ValueError(
                 "Stock price data not available. Call fetch_prices() first."
             )
-        
+
         # X-axis for historical prices (use actual data length, not calculated period)
         actual_data_length = len(self.stock_price['Close'])
         pt = np.linspace(0, actual_data_length, actual_data_length)
-        
+
         plt.figure(figsize=(12, 8), dpi=300)
         plt.plot(pt, self.stock_price['Close'], label='Actual')
         plt.plot(self.x_axis, self.S, label='Forecast')
@@ -268,10 +268,10 @@ class GBM:
             f'over next {self.forecast_period} trading days'
         )
         plt.grid(True, alpha=0.3)
-        
+
         if output_path:
             plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        
+
         if show_plot:
             plt.show()
         else:
