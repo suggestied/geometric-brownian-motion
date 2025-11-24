@@ -1,279 +1,304 @@
-# Geometric Brownian Motion Stock Price Simulator
+# NASDAQ Futures "Radiation of Probability" Simulator
 
-A Python package for forecasting stock price movements using the Geometric Brownian Motion (GBM) stochastic calculus model.
+A live probability assistant for manual futures traders that visualizes and narrows down probable future price paths for NASDAQ futures (NQ) using Geometric Brownian Motion (GBM) and live market data. The system continuously eliminates paths that diverge from reality, "radiating" down to a focused set of likely paths and reversal zones.
 
 ## Overview
 
-This package uses the Geometric Brownian Motion model to simulate possible paths of stock prices in discrete time. The model dynamically fetches stock prices from Yahoo Finance and calculates forecasted price movements based on historical data.
+This tool helps traders visualize probable future price paths by:
+- Starting from a chosen opening price (weekly/daily open or custom)
+- Simulating hundreds of possible future price paths using GBM
+- Continuously removing paths that no longer match reality as new price data arrives
+- Identifying reversal zones where paths converge or cluster
+- Providing multi-timeframe context (daily, 4h, 1h, 15m, 5m, 1m)
 
-The path of the stock can vary based on the seed used from the NumPy library. Different seed sequences have different fixed random blocks of data, so when you change the seed value, the path of the stock price changes.
+**This is not an auto-trading bot** - it's a live, updating probability assistant for manual trading decisions.
 
 ## Features
 
-- Fetch historical stock data from Yahoo Finance
-- Calculate drift (mu) and volatility (sigma) from historical returns
-- Simulate future stock prices using Geometric Brownian Motion
-- Generate visualizations of historical and forecasted prices
-- Command-line interface for easy usage
-- Comprehensive test suite
-- **Docker support for easy setup without installing dependencies**
+### Live Mode (Primary Feature)
+- **Real-time path elimination**: Continuously filters out paths that diverge from actual prices
+- **Multi-timeframe analysis**: Uses daily, 4h, 1h, 15m, 5m, and 1m data for context
+- **Reversal zone detection**: Identifies price clusters where paths converge
+- **Live visualization**: Updates chart every 5 minutes showing surviving paths
+- **Weekly/daily open annotation**: Automatically marks key opening levels
+- **Alpaca API integration**: Fetches live and historical market data
 
-## Quick Start with Docker (Recommended)
+### Traditional Mode (Backward Compatible)
+- One-time GBM simulation for any stock
+- Historical analysis and forecasting
+- Yahoo Finance integration
 
-The easiest way to run this without installing Python dependencies:
+## Quick Start
 
-### Option 1: Use the run script (Easiest!)
+### Prerequisites
+
+1. **Alpaca API Credentials** (for live mode):
+   - Sign up at [Alpaca Markets](https://alpaca.markets/)
+   - Get your API key and secret
+   - Create a `.env` file in the project root:
 
 ```bash
-# Run with defaults (MSFT stock, saves to output/forecast.png)
-./run.sh
-
-# Run with custom stock ticker
-./run.sh AAPL
-
-# Run with custom stock and output file
-./run.sh AMZN output/amzn_forecast.png
+ALPACA_API_KEY=your_api_key_here
+ALPACA_API_SECRET=your_api_secret_here
+ALPACA_USE_PAPER=true  # Use paper trading endpoint (default)
 ```
 
-The script will automatically build the Docker image if needed and save the chart to the `output/` directory.
+### Docker Setup (Recommended)
 
-### Option 2: Manual Docker commands
+The easiest way to run without installing dependencies:
 
 ```bash
-# Build the image (first time only)
-docker build -t gbm-simulator .
-
-# Run simulation
-docker run --rm -v $(pwd)/output:/app/output gbm-simulator \
-  python -m gbm.cli MSFT --output /app/output/forecast.png --no-plot
+# Run live mode for NASDAQ futures (NQ)
+./run.sh NQ live
 
 # With custom parameters
-docker run --rm -v $(pwd)/output:/app/output gbm-simulator \
-  python -m gbm.cli AMZN --history-period 200d --forecast-period 252 --seed 42 \
-  --output /app/output/amzn_forecast.png --no-plot
+./run.sh NQ live --starting-price daily-open --num-paths 1000 --tolerance 0.02
+
+# Rebuild Docker image if needed
+./run.sh NQ live --rebuild
 ```
 
-### View the Chart
+The script automatically:
+- Builds the Docker image if needed
+- Mounts the `output/` directory for charts
+- Loads `.env` file for Alpaca credentials
+- Runs the live simulation
 
-After running, the chart will be saved in the `./output/` directory. Open it with:
+### View Live Chart
 
-```bash
-# macOS
-open output/forecast.png
-
-# Linux
-xdg-open output/forecast.png
-
-# Windows
-start output/forecast.png
-```
-
-## Installation
-
-### Using pip
+The chart is continuously updated in `output/live_forecast.png`:
 
 ```bash
-pip install -r requirements.txt
-```
+# macOS - auto-refresh with watch
+watch -n 5 open output/live_forecast.png
 
-### Development Installation
-
-For development with testing and linting tools:
-
-```bash
-pip install -r requirements.txt
-pip install pytest pytest-cov black flake8
+# Or manually open
+open output/live_forecast.png
 ```
 
 ## Usage
 
-### Quick Docker Usage (No Installation Required)
+### Live Mode (NASDAQ Futures)
 
 ```bash
-# Create output directory
-mkdir -p output
+# Basic usage - weekly open, 500 paths, 1% tolerance
+python -m gbm.cli NQ --live
 
-# Run simulation and save chart
-docker run --rm -v $(pwd)/output:/app/output gbm-simulator \
-  python -m gbm.cli AAPL --output /app/output/aapl_forecast.png --no-plot
+# Daily open instead
+python -m gbm.cli NQ --live --starting-price daily-open
 
-# Open the chart
-open output/aapl_forecast.png  # macOS
-# or
-xdg-open output/aapl_forecast.png  # Linux
+# Custom starting price
+python -m gbm.cli NQ --live --starting-price 18500.50
+
+# More paths, tighter tolerance
+python -m gbm.cli NQ --live --num-paths 1000 --tolerance 0.005
+
+# Custom forecast horizon (default is 1 week = 10080 minutes)
+python -m gbm.cli NQ --live --forecast-horizon-minutes 1440  # 1 day
+
+# Faster updates (every 30 seconds)
+python -m gbm.cli NQ --live --update-interval 30
 ```
 
-### Command-Line Interface
+### Live Mode Parameters
 
-The easiest way to use the package is through the command-line interface:
+- `--live`: Enable live mode with continuous updates
+- `--starting-price`: Starting price source
+  - `weekly-open`: Monday's opening price (default)
+  - `daily-open`: Today's 9:30 AM ET opening price
+  - Numeric value: Custom price (e.g., `18500.50`)
+- `--num-paths`: Number of Monte Carlo paths (default: 500)
+- `--tolerance`: Elimination tolerance as fraction (default: 0.01 = 1%)
+- `--forecast-horizon-minutes`: Forecast duration in minutes (default: 10080 = 1 week)
+- `--update-interval`: Update frequency in seconds (default: 60 = 1 minute)
+- `--history-days`: Days of historical data to fetch (default: 30)
+- `--output`: Path for chart output (default: `/app/output/live_forecast.png` in Docker)
+
+### Traditional Mode (Stocks)
 
 ```bash
-# Basic usage with defaults
+# Basic usage
 python -m gbm.cli MSFT
 
 # Custom parameters
-python -m gbm.cli AMZN --history-period 100d --forecast-period 252 --seed 10
+python -m gbm.cli AAPL --history-period 200d --forecast-period 252 --seed 42
 
-# Save plot to file without displaying
-python -m gbm.cli AAPL --output forecast.png --no-plot
-
-# Full example
-python -m gbm.cli MSFT --history-period 504d --forecast-period 252 --seed 10 --output msft_forecast.png
+# Save to file
+python -m gbm.cli AMZN --output forecast.png --no-plot
 ```
 
-### Python API
+## How It Works
 
-You can also use the package programmatically:
+### Path Radiation Process
 
-```python
-from gbm import GBM
+1. **Initialization**:
+   - Fetches historical data across multiple timeframes
+   - Calculates drift (μ) and volatility (σ) from higher timeframes
+   - Generates N Monte Carlo paths from starting price
 
-# Create GBM instance
-gbm = GBM(
-    stock_ticker='MSFT',
-    history_period='504d',
-    forecast_period=252,
-    seed=10
-)
+2. **Live Updates**:
+   - Every update interval (default: 1 minute), fetches latest price
+   - Compares actual price to each simulated path
+   - Eliminates paths that diverge beyond tolerance threshold
+   - Detects reversal zones from surviving paths
 
-# Run complete simulation pipeline
-gbm.run(show_plot=True, output_path='forecast.png')
+3. **Visualization**:
+   - Shows all active paths (transparent blue lines)
+   - Highlights mean path and confidence bands
+   - Annotates weekly/daily opens
+   - Marks detected reversal zones (support/resistance/convergence)
 
-# Or use individual methods
-gbm.fetch_prices()
-gbm.calculate_mu_sigma()
-gbm.brownian_motion()
-gbm.geometric_brownian_motion()
-gbm.plot(output_path='forecast.png', show_plot=True)
+### Multi-Timeframe Logic
 
-# Access results
-print(f"Initial price: ${gbm.So:.2f}")
-print(f"Final forecasted price: ${gbm.S[-1]:.2f}")
-print(f"Annualized return (mu): {gbm.mu:.4f}")
-print(f"Annualized volatility (sigma): {gbm.sigma:.4f}")
+- **Higher Timeframes (HTF)**: Daily, 4h, 1h
+  - Used for calculating model parameters (drift, volatility)
+  - Provides broader market context
 
-# Get forecasted prices and x-axis values
-forecasted_prices, x_axis = gbm.geometric_brownian_motion()
-```
+- **Lower Timeframes (LTF)**: 15m, 5m, 1m
+  - Used for granular path updates
+  - Enables precise path elimination
 
-## Parameters
+### Reversal Zone Detection
 
-### GBM Class Parameters
+The system identifies three types of zones:
+- **Support**: Price levels where paths tend to reverse upward
+- **Resistance**: Price levels where paths tend to reverse downward
+- **Convergence**: Areas where many paths cluster
 
-- **stock_ticker** (str): Stock ticker symbol (e.g., 'MSFT', 'AMZN', 'AAPL')
-- **history_period** (str, default='100d'): Time period to look back for historical data
-  - Examples: '100d' (100 days), '1y' (1 year), '6mo' (6 months)
-- **forecast_period** (int, default=252): Number of trading days to forecast
-- **seed** (int, default=20): Random seed for NumPy pseudo-random number generator
-
-### GBM Model Parameters
-
-- **So**: Initial stock price (last trading day price)
-- **dt**: Time increment - daily in this case
-- **T**: Length of the prediction time horizon (same unit with dt, days)
-- **N**: Number of time points in the prediction time horizon → T/dt
-- **t**: Array for time points in the prediction time horizon [1, 2, 3, .., N]
-- **mu**: Mean of historical daily returns (drift coefficient), annualized
-- **sigma**: Standard deviation of historical daily returns (diffusion coefficient), annualized
-- **b**: Array for Brownian increments
-- **W**: Array for Brownian path
+Zones are ranked by probability and path count.
 
 ## Project Structure
 
 ```
-gbm-simulator/
+geometric-brownian-motion/
 ├── gbm/
-│   ├── __init__.py      # Package initialization
-│   ├── model.py         # GBM model implementation
-│   └── cli.py           # Command-line interface
-├── tests/
 │   ├── __init__.py
-│   └── test_gbm.py      # Test suite
-├── requirements.txt     # Python dependencies
-├── pyproject.toml       # Project configuration
-├── .gitignore          # Git ignore rules
-├── .github/
-│   └── workflows/
-│       └── ci.yml       # GitHub Actions CI/CD
-└── README.md           # This file
+│   ├── model.py              # Traditional GBM model
+│   ├── cli.py                # Command-line interface
+│   ├── visualization.py      # Plotting utilities
+│   ├── data/
+│   │   ├── alpaca_client.py  # Alpaca API client
+│   │   ├── market_calendar.py # Market open detection
+│   │   └── multi_timeframe.py # Multi-TF data manager
+│   ├── simulation/
+│   │   ├── path_generator.py  # Monte Carlo path generation
+│   │   ├── path_manager.py    # Path storage and tracking
+│   │   └── reversal_zones.py  # Zone detection
+│   └── live/
+│       ├── path_filter.py     # Path elimination logic
+│       └── updater.py         # Live update loop
+├── tests/
+│   └── test_gbm.py
+├── output/                    # Chart output directory
+├── requirements.txt
+├── Dockerfile
+├── run.sh                     # Docker run script
+├── .env                       # Alpaca credentials (create this)
+└── README.md
 ```
 
-## Development
+## Configuration
 
-### Running Tests
+### Environment Variables (.env)
 
 ```bash
-# Run all tests
-pytest
+# Required for live mode
+ALPACA_API_KEY=your_api_key
+ALPACA_API_SECRET=your_api_secret
 
-# Run with coverage
-pytest --cov=gbm --cov-report=html
-
-# Run specific test file
-pytest tests/test_gbm.py
+# Optional
+ALPACA_USE_PAPER=true          # Use paper trading endpoint (default: true)
+ALPACA_BASE_URL=https://paper-api.alpaca.markets  # Optional override
 ```
 
-### Code Formatting
+### Alpaca API Notes
 
-```bash
-# Format code with black
-black gbm/ tests/
-
-# Check formatting
-black --check gbm/ tests/
-```
-
-### Linting
-
-```bash
-# Run flake8
-flake8 gbm/ tests/
-```
-
-## CI/CD
-
-The project includes GitHub Actions workflows for continuous integration:
-
-- **Test Suite**: Runs on multiple Python versions (3.8, 3.9, 3.10, 3.11) and operating systems
-- **Linting**: Checks code formatting and style
-- **Coverage**: Tracks test coverage
-
-## Sample Output
-
-![GBM Plot](sample_output.png)
+- Free tier (IEX feed) has a 15-minute data delay
+- The system automatically adjusts requests to comply with limitations
+- For real-time data, upgrade to a paid Alpaca subscription
+- NQ futures are mapped to QQQ ETF as a proxy
 
 ## Mathematical Background
 
-The Geometric Brownian Motion model is described by the stochastic differential equation:
+The Geometric Brownian Motion model is described by:
 
 ```
 dS(t) = μS(t)dt + σS(t)dW(t)
 ```
 
 Where:
-- S(t) is the stock price at time t
+- S(t) is the price at time t
 - μ is the drift coefficient (expected return)
 - σ is the volatility coefficient
 - dW(t) is a Wiener process (Brownian motion)
 
-The solution to this equation is:
+The discrete-time solution:
 
 ```
-S(t) = S(0) * exp((μ - 0.5σ²)t + σW(t))
+S(t+Δt) = S(t) * exp((μ - 0.5σ²)Δt + σ√Δt * Z)
 ```
 
-This implementation uses discrete-time approximation with daily time steps.
+Where Z ~ N(0,1) is a standard normal random variable.
 
 ## Dependencies
 
 - **numpy**: Numerical computations
-- **yfinance**: Fetching stock data from Yahoo Finance
-- **matplotlib**: Plotting and visualization
 - **pandas**: Data manipulation
+- **matplotlib**: Visualization
+- **alpaca-py**: Alpaca Markets API client
+- **python-dotenv**: Environment variable management
+- **scipy**: Statistical analysis for reversal zones
+- **yfinance**: Traditional mode (Yahoo Finance)
+
+## Development
+
+### Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+### Running Tests
+
+```bash
+pytest
+pytest --cov=gbm --cov-report=html
+```
+
+### Code Formatting
+
+```bash
+black gbm/ tests/
+flake8 gbm/ tests/
+```
+
+## Limitations
+
+- **Alpaca Free Tier**: 15-minute data delay for recent prices
+- **NQ Futures**: Currently uses QQQ ETF as proxy (Alpaca doesn't support futures directly)
+- **Market Hours**: Best results during market hours (9:30 AM - 4:00 PM ET)
+- **Path Elimination**: Aggressive filtering may eliminate valid paths during high volatility
+
+## Troubleshooting
+
+### Chart Not Updating
+- Check that `output/` directory exists and is writable
+- Verify Docker volume mount: `-v $(pwd)/output:/app/output`
+- Check file permissions
+
+### Alpaca API Errors
+- Verify `.env` file exists with correct credentials
+- Check API key permissions (paper vs live)
+- Ensure account has data access enabled
+
+### No Paths Surviving
+- Increase `--tolerance` (e.g., `0.02` for 2%)
+- Check if market is open and data is flowing
+- Verify starting price is reasonable
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. Any contribution to improve this model is appreciated.
+Contributions welcome! Please feel free to submit a Pull Request.
 
 ## License
 
@@ -281,5 +306,5 @@ MIT License
 
 ## Acknowledgments
 
-- Original implementation by harishangaran
-- Uses Yahoo Finance API via yfinance library
+- Alpaca Markets for market data API
+- Original GBM implementation by harishangaran
