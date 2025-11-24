@@ -1,17 +1,9 @@
 """Visualization utilities for plotting paths and reversal zones."""
 
 import os
-import sys
-
+import matplotlib
 # Use non-interactive backend for headless environments (Docker)
-# Must be set before importing pyplot
-try:
-    import matplotlib
-    matplotlib.use('Agg')
-    print("Matplotlib backend set to Agg")
-except Exception as e:
-    print(f"Warning: Could not set matplotlib backend: {e}")
-
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -21,8 +13,6 @@ from pathlib import Path
 from gbm.simulation.path_manager import PathManager
 from gbm.simulation.reversal_zones import ReversalZoneDetector
 from gbm.data.market_calendar import MarketCalendar
-
-print("Visualization module loaded successfully")
 
 
 def plot_paths_with_zones(
@@ -56,18 +46,12 @@ def plot_paths_with_zones(
     show_plot : bool, default=True
         Whether to display the plot
     """
-    print(f"plot_paths_with_zones called with {len(path_manager.active_paths)} active paths")
-    
     if not path_manager.active_paths:
-        print("Warning: No active paths to plot")
         return
     
     # Get active paths
     active_paths = path_manager.get_active_paths()
-    print(f"Retrieved {len(active_paths)} active paths for plotting")
-    
     if len(active_paths) == 0:
-        print("Warning: No active paths available for plotting")
         return
     
     # Ensure output directory exists
@@ -75,14 +59,9 @@ def plot_paths_with_zones(
         output_dir = Path(output_path).parent
         if output_dir:
             output_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Output directory ensured: {output_dir}")
     
-    print("Creating matplotlib figure...")
     fig, ax = plt.subplots(figsize=(16, 10), dpi=150)
-    print("Figure created")
-    
     time_index = path_manager.time_index
-    print(f"Time index length: {len(time_index)}")
     
     # Normalize time_index to naive for plotting
     if hasattr(time_index, 'tz') and time_index.tz is not None:
@@ -94,26 +73,18 @@ def plot_paths_with_zones(
     current_time_naive = current_time.replace(tzinfo=None) if current_time.tzinfo else current_time
     
     # Plot all active paths (with transparency)
-    print(f"Plotting {len(active_paths)} paths...")
-    for i, path in enumerate(active_paths):
-        if i % 100 == 0:
-            print(f"  Plotting path {i+1}/{len(active_paths)}...")
-        try:
-            ax.plot(
-                time_index_plot[:len(path)],
-                path,
-                alpha=0.1,
-                color='blue',
-                linewidth=0.5,
-            )
-        except Exception as e:
-            print(f"  Error plotting path {i}: {e}")
-            continue
+    for path in active_paths:
+        ax.plot(
+            time_index_plot[:len(path)],
+            path,
+            alpha=0.1,
+            color='blue',
+            linewidth=0.5,
+        )
     
-    print("Paths plotted, calculating bounds...")
-    # Get path bounds for shading
+    # Get path bounds for shading (sample to avoid too many calls)
     bounds_data = []
-    sample_size = min(100, len(time_index_plot), len(active_paths[0]))  # Sample to avoid too many calls
+    sample_size = min(100, len(time_index_plot), len(active_paths[0]))
     step = max(1, len(time_index_plot) // sample_size)
     
     for idx in range(0, min(len(time_index_plot), len(active_paths[0])), step):
@@ -233,57 +204,17 @@ def plot_paths_with_zones(
     ax.legend(loc='best', fontsize=9)
     ax.grid(True, alpha=0.3)
     
-    print("Formatting plot...")
     # Format x-axis dates
     fig.autofmt_xdate()
-    
     plt.tight_layout()
-    print("Plot formatted, ready to save...")
     
     if output_path:
-        try:
-            # Convert to absolute path if relative
-            output_path_abs = Path(output_path).resolve()
-            print(f"Attempting to save plot to: {output_path_abs}")
-            
-            # Ensure parent directory exists
-            output_path_abs.parent.mkdir(parents=True, exist_ok=True)
-            print(f"Directory exists: {output_path_abs.parent.exists()}")
-            
-            print("Calling plt.savefig...")
-            plt.savefig(str(output_path_abs), dpi=300, bbox_inches='tight')
-            print(f"✓ plt.savefig completed")
-            
-            # Force flush
-            import sys
-            sys.stdout.flush()
-            
-            # Verify file was created
-            if output_path_abs.exists():
-                file_size = output_path_abs.stat().st_size
-                print(f"✓ Plot successfully saved to: {output_path_abs}")
-                print(f"✓ File verified: {file_size} bytes")
-            else:
-                print(f"⚠️  Warning: File was not created at {output_path_abs}")
-                print(f"   Parent directory exists: {output_path_abs.parent.exists()}")
-                print(f"   Parent directory: {output_path_abs.parent}")
-                # Try listing directory contents
-                try:
-                    print(f"   Directory contents: {list(output_path_abs.parent.iterdir())}")
-                except:
-                    pass
-        except Exception as e:
-            import traceback
-            print(f"✗ Error saving plot to {output_path}: {e}")
-            traceback.print_exc()
-            raise
-    else:
-        print("No output_path provided, skipping save")
+        output_path_abs = Path(output_path).resolve()
+        output_path_abs.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(str(output_path_abs), dpi=300, bbox_inches='tight')
     
     if show_plot:
         plt.show()
     else:
-        print("Closing figure...")
         plt.close(fig)
-        print("Figure closed")
 

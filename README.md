@@ -240,7 +240,7 @@ The project includes GitHub Actions workflows for continuous integration:
 
 ## Sample Output
 
-![GBM Plot](/output/forecast.png)
+![GBM Plot](sample_output.png)
 
 ## Mathematical Background
 

@@ -173,12 +173,12 @@ def run_live_mode(args: argparse.Namespace) -> int:
         Exit code
     """
     try:
-        print("=" * 60)
+        print("=" * 70)
         print("NASDAQ Futures Probability Simulator - Live Mode")
-        print("=" * 60)
+        print("=" * 70)
         
         # Initialize Alpaca client
-        print("\nInitializing Alpaca API client...")
+        print("Connecting to Alpaca API...")
         alpaca_client = AlpacaClient()
         
         # Initialize market calendar
@@ -194,12 +194,11 @@ def run_live_mode(args: argparse.Namespace) -> int:
         multi_tf.fetch_historical_data(start_time, end_time, args.history_days)
         
         # Determine starting price
-        print("\nDetermining starting price...")
+        print("Determining starting price...")
         start_datetime = None
         
         if args.starting_price == "weekly-open":
             start_datetime = calendar.get_weekly_open()
-            print(f"Weekly open datetime: {start_datetime}")
             # Normalize timezone for comparison
             start_datetime_naive = start_datetime.replace(tzinfo=None) if start_datetime.tzinfo else start_datetime
             
@@ -207,7 +206,6 @@ def run_live_mode(args: argparse.Namespace) -> int:
             daily_data = multi_tf.data.get("1d", pd.DataFrame())
             if not daily_data.empty:
                 # Find the closest daily bar to weekly open
-                # Convert index to naive if needed and calculate absolute time differences
                 index_naive = pd.DatetimeIndex([
                     x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x 
                     for x in daily_data.index
@@ -218,16 +216,13 @@ def run_live_mode(args: argparse.Namespace) -> int:
                 ).abs()
                 closest_idx = time_diff_series.idxmin()
                 start_price = float(daily_data.loc[closest_idx, "close"])
-                print(f"Found weekly open price from daily data: ${start_price:.2f}")
             else:
                 # Fallback to latest available price
                 start_price = multi_tf.get_latest_close("1d") or multi_tf.get_latest_close("1m")
                 if start_price is None:
                     raise ValueError("Could not determine starting price")
-                print(f"Using latest available price: ${start_price:.2f}")
         elif args.starting_price == "daily-open":
             start_datetime = calendar.get_daily_open()
-            print(f"Daily open datetime: {start_datetime}")
             # Normalize timezone for comparison
             start_datetime_naive = start_datetime.replace(tzinfo=None) if start_datetime.tzinfo else start_datetime
             
@@ -235,7 +230,6 @@ def run_live_mode(args: argparse.Namespace) -> int:
             min_data = multi_tf.data.get("1m", pd.DataFrame())
             if not min_data.empty:
                 # Find the closest 1m bar to daily open
-                # Convert index to naive if needed and calculate absolute time differences
                 index_naive = pd.DatetimeIndex([
                     x.replace(tzinfo=None) if hasattr(x, 'tzinfo') and x.tzinfo else x 
                     for x in min_data.index
@@ -246,17 +240,14 @@ def run_live_mode(args: argparse.Namespace) -> int:
                 ).abs()
                 closest_idx = time_diff_series.idxmin()
                 start_price = float(min_data.loc[closest_idx, "close"])
-                print(f"Found daily open price from 1m data: ${start_price:.2f}")
             else:
                 start_price = multi_tf.get_latest_close("1m")
                 if start_price is None:
                     raise ValueError("Could not determine starting price")
-                print(f"Using latest available price: ${start_price:.2f}")
         else:
             try:
                 start_price = float(args.starting_price)
                 start_datetime = datetime.now()
-                print(f"Custom starting price: ${start_price:.2f}")
             except ValueError:
                 raise ValueError(f"Invalid starting price: {args.starting_price}")
         
@@ -266,10 +257,8 @@ def run_live_mode(args: argparse.Namespace) -> int:
         if start_datetime is None:
             start_datetime = datetime.now()
         
-        print(f"Final starting price: ${start_price:.2f} at {start_datetime}")
-        
         # Calculate parameters from HTF data
-        print("\nCalculating drift and volatility from higher timeframes...")
+        print("Calculating model parameters...")
         htf_params = multi_tf.calculate_htf_parameters()
         
         if not htf_params:
@@ -281,11 +270,8 @@ def run_live_mode(args: argparse.Namespace) -> int:
         mu = params["mu"]
         sigma = params["sigma"]
         
-        print(f"Drift (mu): {mu:.4f}")
-        print(f"Volatility (sigma): {sigma:.4f}")
-        
         # Generate paths
-        print(f"\nGenerating {args.num_paths} Monte Carlo paths...")
+        print(f"Generating {args.num_paths} Monte Carlo paths...")
         path_generator = PathGenerator(
             starting_price=start_price,
             mu=mu,
@@ -297,7 +283,7 @@ def run_live_mode(args: argparse.Namespace) -> int:
         # Normalize start_datetime to naive for path generation
         start_datetime_naive = start_datetime.replace(tzinfo=None) if start_datetime.tzinfo else start_datetime
         paths, time_index = path_generator.generate_paths(start_datetime_naive)
-        print(f"Generated {len(paths)} paths over {len(time_index)} time steps")
+        print(f"✓ {len(paths)} paths generated")
         
         # Create path manager
         path_manager = PathManager(paths, time_index)
@@ -361,28 +347,22 @@ def run_live_mode(args: argparse.Namespace) -> int:
         )
         
         # Display initial summary
-        print("\n" + "=" * 80)
-        print("SIMULATION SUMMARY")
-        print("=" * 80)
+        print("\n" + "=" * 70)
+        print("SIMULATION CONFIGURATION")
+        print("=" * 70)
         print(f"Ticker: {args.ticker}")
-        print(f"Starting Price: ${start_price:.2f} (from {args.starting_price})")
-        print(f"Starting Time: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Forecast Horizon: {args.forecast_horizon_minutes} minutes ({args.forecast_horizon_minutes/60:.1f} hours)")
-        print(f"Number of Paths: {args.num_paths}")
-        print(f"Elimination Tolerance: {args.tolerance*100:.1f}%")
-        print(f"Update Interval: {args.update_interval} seconds")
-        print(f"Drift (μ): {mu:.4f}")
-        print(f"Volatility (σ): {sigma:.4f}")
+        print(f"Starting Price: ${start_price:.2f} | Forecast: {args.forecast_horizon_minutes/60:.0f} hours")
+        print(f"Paths: {args.num_paths} | Tolerance: {args.tolerance*100:.1f}% | Update: {args.update_interval}s")
+        print(f"Drift (μ): {mu:.4f} | Volatility (σ): {sigma:.4f}")
         if weekly_open_price:
-            print(f"Weekly Open: ${weekly_open_price:.2f}")
+            print(f"Weekly Open: ${weekly_open_price:.2f}", end="")
         if daily_open_price:
-            print(f"Daily Open: ${daily_open_price:.2f}")
-        print(f"Visualization: {output_path} (updates every 5 minutes)")
-        print("=" * 80)
-        print("\nStarting live update loop...")
-        print("The system will continuously eliminate paths that diverge from actual prices.")
-        print("Press Ctrl+C to stop")
-        print("\n" + "=" * 80 + "\n")
+            print(f" | Daily Open: ${daily_open_price:.2f}", end="")
+        if weekly_open_price or daily_open_price:
+            print()
+        print(f"Chart: {output_path} (updates every 5 minutes)")
+        print("=" * 70)
+        print("\nStarting live updates... (Press Ctrl+C to stop)\n")
         
         # Start live updates
         updater.start()

@@ -67,7 +67,6 @@ class LiveUpdater:
         This will run continuously until stop() is called.
         """
         self.running = True
-        print(f"Starting live updater (interval: {self.update_interval_seconds}s)")
         
         while self.running:
             try:
@@ -134,43 +133,30 @@ class LiveUpdater:
         
         self.last_update_time = current_time
         
-        # Print update info with formatting
-        print("-" * 80)
-        print(f"Update #{self.update_count} | {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print("-" * 80)
-        print(f"Current Price: ${latest_price:.2f}")
+        # Print clean update info
+        print(f"\n[{current_time.strftime('%H:%M:%S')}] Update #{self.update_count}")
+        print(f"  Price: ${latest_price:.2f} | Active: {stats['num_active']}/{stats['num_total']} ({survival_rate*100:.1f}%) | Eliminated: {eliminated}")
         
         # Show weekly/daily opens if available
         if self.weekly_open_price is not None:
             diff_weekly = ((latest_price - self.weekly_open_price) / self.weekly_open_price) * 100
-            print(f"Weekly Open: ${self.weekly_open_price:.2f} ({diff_weekly:+.2f}%)")
+            print(f"  Weekly Open: ${self.weekly_open_price:.2f} ({diff_weekly:+.2f}%)", end="")
         if self.daily_open_price is not None:
             diff_daily = ((latest_price - self.daily_open_price) / self.daily_open_price) * 100
-            print(f"Daily Open: ${self.daily_open_price:.2f} ({diff_daily:+.2f}%)")
-        
-        print(f"\nPath Status:")
-        print(f"  Active: {stats['num_active']}/{stats['num_total']} ({survival_rate*100:.1f}%)")
-        print(f"  Eliminated this update: {eliminated}")
+            print(f" | Daily Open: ${self.daily_open_price:.2f} ({diff_daily:+.2f}%)", end="")
+        if self.weekly_open_price or self.daily_open_price:
+            print()
         
         # Display reversal zones
         if zones:
-            print(f"\nReversal Zones (Top {min(5, len(zones))}):")
-            for i, zone in enumerate(zones[:5], 1):
+            print(f"  Reversal Zones:")
+            for i, zone in enumerate(zones[:3], 1):  # Top 3 only
                 zone_type_icon = "🟢" if zone['zone_type'] == 'support' else "🔴" if zone['zone_type'] == 'resistance' else "🟡"
                 print(
-                    f"  {i}. {zone_type_icon} {zone['zone_type'].title():12s} "
+                    f"    {zone_type_icon} {zone['zone_type'].title():12s} "
                     f"@ ${zone['price_level']:.2f} "
-                    f"(Probability: {zone['probability']*100:.1f}%, "
-                    f"Paths: {zone['path_count']})"
+                    f"({zone['probability']*100:.1f}%)"
                 )
-        else:
-            print("\nReversal Zones: None detected yet")
-        
-        # Show "radiation" progress
-        elapsed_minutes = (current_time - self.start_time).total_seconds() / 60
-        if elapsed_minutes > 0:
-            elimination_rate = (stats['num_total'] - stats['num_active']) / elapsed_minutes
-            print(f"\nRadiation Progress: {elimination_rate:.1f} paths eliminated/minute")
         
         # Update visualization periodically (every N updates or on first update)
         should_update_plot = (
@@ -179,27 +165,7 @@ class LiveUpdater:
         )
         
         if should_update_plot:
-            print(f"\n🖼️  Generating visualization (update #{self.update_count})...")
             try:
-                from pathlib import Path
-                import os
-                import sys
-                
-                # Ensure output directory exists
-                output_path_obj = Path(self.output_path)
-                output_dir = output_path_obj.parent
-                if output_dir:
-                    output_dir.mkdir(parents=True, exist_ok=True)
-                    print(f"   Output directory: {output_dir.resolve()}")
-                    print(f"   Directory exists: {output_dir.exists()}")
-                
-                print(f"   Output path: {output_path_obj.resolve()}")
-                print(f"   Active paths: {len(self.path_manager.active_paths)}")
-                sys.stdout.flush()
-                
-                print("   Calling plot_paths_with_zones...")
-                sys.stdout.flush()
-                
                 plot_paths_with_zones(
                     path_manager=self.path_manager,
                     reversal_detector=self.reversal_detector,
@@ -210,17 +176,9 @@ class LiveUpdater:
                     output_path=str(self.output_path),
                     show_plot=False,
                 )
-                
-                sys.stdout.flush()
-                print(f"📊 Visualization saved: {self.output_path}")
-                sys.stdout.flush()
+                print(f"  📊 Chart saved: {self.output_path}")
             except Exception as e:
-                import traceback
-                print(f"\n⚠️  Could not update visualization: {e}")
-                traceback.print_exc()
-                sys.stdout.flush()
-        
-        print("=" * 80)
+                print(f"  ⚠️  Chart error: {e}")
         
         # Call callback if provided
         if self.callback:
